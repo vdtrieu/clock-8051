@@ -1,0 +1,305 @@
+C51 COMPILER V9.52.0.0   MAIN                                                              04/18/2018 01:44:31 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND TABS(2)
+
+line level    source
+
+   1          #include "main.h"
+   2          
+   3          // time parameter
+   4          volatile unsigned int timer_counter = 20;
+   5          Time time;
+   6          bit cur_sec_stat      = 0;
+   7          bit last_sec_stat     = 0;
+   8          bit cur_24h_stat      = 1;
+   9          bit last_24h_stat     = 1;
+  10          bit cur_cal_stat      = 0;
+  11          bit last_cal_stat     = 0;
+  12          char settings         = 1;
+  13          
+  14          void main(){
+  15   1        TMOD &= 0xF0; // set timer0
+  16   1        TMOD |= 0x01; // set mode 1 time0
+  17   1        TH0   = 0x3C;   // initial value count 50.000us = 50ms
+  18   1        TL0   = 0xB0;
+  19   1        ET0   = 1;      // enable timer0 interrupt
+  20   1        IT0   = 1;      // enable falling edge on INT0/BTN1
+  21   1        IT1   = 1;      ///enable falling edge on INT1/BTN2
+  22   1        EX0   = 1;      // enable external interrupt 0
+  23   1        EX1   = 1;      // enable external interrupt 1
+  24   1        EA    = 1;        // enable all interrupt
+  25   1        TR0   = 1;      // start timer0
+  26   1        
+  27   1        init_time();
+  28   1        LCD_init();
+  29   1        
+  30   1        SETTINGS:{
+  31   2          while(1){
+  32   3            if(settings == 1){ 
+  33   4              LCD_cmd(0x84);
+  34   4              LCD_print("  ");
+  35   4            }
+  36   3            else if(settings == 2){ 
+  37   4              LCD_cmd(0x87);
+  38   4              LCD_print("  ");
+  39   4            }
+  40   3            else if(settings == 3){         
+  41   4              LCD_cmd(0x8a);
+  42   4              LCD_print("  ");
+  43   4            }
+  44   3            else if(settings == 4){ 
+  45   4              LCD_cmd(0xcb);
+  46   4              LCD_print("    ");
+  47   4            }
+  48   3            else if(settings == 5){ 
+  49   4              LCD_cmd(0xc8);
+  50   4              LCD_print("  ");
+  51   4            }
+  52   3            else if(settings == 6){ 
+  53   4              LCD_cmd(0xc5);
+  54   4              LCD_print("  ");
+  55   4            }
+C51 COMPILER V9.52.0.0   MAIN                                                              04/18/2018 01:44:31 PAGE 2   
+
+  56   3            else{
+  57   4              time.weekday = day_of_week(time.day,time.month,time.year);
+  58   4              Solar2Lunar(time.day,time.month,time.year,&time.lunarday, &time.lunarmonth, &time.lunaryear);
+*** WARNING C182 IN LINE 58 OF main.c: pointer to different objects
+  59   4              goto NORMAL;
+  60   4            }
+  61   3            
+  62   3            delay(BLINK);
+  63   3            if(~BTN_SET){
+  64   4              delay(DEBOUNCE);
+  65   4              settings = (settings+1)%7;
+  66   4            }
+  67   3            
+  68   3            if(time.year%4==0 && time.month==2 && time.day>29)
+  69   3              time.day = 29;
+  70   3            else if(time.year%4!=0 && time.month==2 && time.day>28)
+  71   3              time.day = 28;
+  72   3            else if((time.month==4 || time.month==6 || time.month==9 || time.month==11) && time.day>30)
+  73   3              time.day = 30;
+  74   3            
+  75   3            LCD_print_time(time.hour,time.minute,time.second,1);
+  76   3            LCD_print_date(OFF_WEEKDAY,time.day,time.month,time.year);
+  77   3            
+  78   3            delay(BLINK);
+  79   3            if(~BTN_SET){
+  80   4              delay(DEBOUNCE);
+  81   4              settings = (settings+1)%7;
+  82   4            }
+  83   3          } 
+  84   2        }
+  85   1        
+  86   1        NORMAL:
+  87   1        LCD_print_time(time.hour,time.minute,time.second,cur_24h_stat);
+  88   1        LCD_print_date(time.weekday,time.day,time.month,time.year); 
+  89   1        while(1){
+  90   2          if(cur_sec_stat != last_sec_stat){
+  91   3            increase_second();
+  92   3            last_sec_stat = cur_sec_stat;
+  93   3            LCD_print_time(time.hour,time.minute,time.second,cur_24h_stat);
+  94   3          }
+  95   2          if(cur_24h_stat != last_24h_stat){
+  96   3            last_24h_stat = cur_24h_stat;
+  97   3            LCD_print_time(time.hour,time.minute,time.second,cur_24h_stat);
+  98   3          }
+  99   2          if(cur_cal_stat != last_cal_stat){
+ 100   3            last_cal_stat = cur_cal_stat;
+ 101   3            if(~cur_cal_stat) // not lunar calendar
+ 102   3              LCD_print_date(time.weekday,time.day,time.month,time.year);
+ 103   3            else
+ 104   3              LCD_print_date(LUNAR,time.lunarday,time.lunarmonth,time.lunaryear);
+ 105   3          }
+ 106   2          if(~BTN_SET){
+ 107   3            delay(DEBOUNCE);
+ 108   3            settings++;
+ 109   3            goto SETTINGS;
+ 110   3          }
+ 111   2        }
+ 112   1      }
+ 113          
+ 114          //-------------------------------------END-OF-MAIN----------------------------------------------------//
+ 115          
+ 116          void ISR_1ms_timer0(void) interrupt 1 {
+C51 COMPILER V9.52.0.0   MAIN                                                              04/18/2018 01:44:31 PAGE 3   
+
+ 117   1        TH0 = 0x3C;
+ 118   1        TL0 = 0xB0;
+ 119   1        timer_counter--;
+ 120   1        if (timer_counter == 0){
+ 121   2          timer_counter = 20;
+ 122   2          cur_sec_stat = ~cur_sec_stat;
+ 123   2        }
+ 124   1      }
+ 125          
+ 126          void ISR_btn1(void) interrupt 0 {
+ 127   1        delay(DEBOUNCE);
+ 128   1        if(settings == 0)
+ 129   1          cur_24h_stat = ~cur_24h_stat;
+ 130   1        else if(settings == 1)
+ 131   1          time.hour = (time.hour>0) ? time.hour - 1 : 23;
+ 132   1        else if(settings == 2)
+ 133   1          time.minute = (time.minute>0) ? time.minute - 1 : 59;
+ 134   1        else if(settings == 3)
+ 135   1          time.second = (time.second>0) ? time.second - 1 : 59;
+ 136   1        else if(settings == 4)
+ 137   1          time.year -= 1;
+ 138   1        else if(settings == 5)
+ 139   1          time.month = (time.month>1) ? time.month - 1 : 12;
+ 140   1        else{
+ 141   2          if(time.day==1){
+ 142   3            if(time.year%4==0 && time.month==2)
+ 143   3              time.day = 29;
+ 144   3            else if(time.year%4!=0 && time.month==2)
+ 145   3              time.day = 28;
+ 146   3            else if(time.month==4 || time.month==6 || time.month==9 || time.month==11)
+ 147   3              time.day = 30;
+ 148   3            else time.day = 31;
+ 149   3          }
+ 150   2          else time.day -= 1;
+ 151   2        }
+ 152   1      }
+ 153          
+ 154          void ISR_btn2(void) interrupt 2 {
+ 155   1        delay(DEBOUNCE);
+ 156   1        if(settings == 0)
+ 157   1          cur_cal_stat = ~cur_cal_stat;
+ 158   1        else if(settings == 1)
+ 159   1          time.hour = (time.hour<23) ? time.hour + 1 : 0;
+ 160   1        else if(settings == 2)
+ 161   1          time.minute = (time.minute<59) ? time.minute + 1 : 0;
+ 162   1        else if(settings == 3)
+ 163   1          time.second = (time.second<59) ? time.second + 1 : 0;
+ 164   1        else if(settings == 4)
+ 165   1          time.year += 1;
+ 166   1        else if(settings == 5)
+ 167   1          time.month = (time.month<12) ? time.month + 1 : 1;
+ 168   1        else {
+ 169   2            if(time.year%4==0 && time.month==2 && time.day>=29)
+ 170   2              time.day = 1;
+ 171   2            else if(time.year%4!=0 && time.month==2 && time.day>=28)
+ 172   2              time.day = 1;
+ 173   2            else if((time.month==4 || time.month==6 || time.month==9 || time.month==11)&& time.day>=30)
+ 174   2              time.day = 1;
+ 175   2            else if(time.day==31)
+ 176   2              time.day = 1;
+ 177   2            else
+ 178   2              time.day+=1;
+C51 COMPILER V9.52.0.0   MAIN                                                              04/18/2018 01:44:31 PAGE 4   
+
+ 179   2        }
+ 180   1      }
+ 181          
+ 182          void init_time(){
+ 183   1        time.hour = 0;
+ 184   1        time.minute = 0;
+ 185   1        time.second = 0;
+ 186   1        time.weekday = 0;
+ 187   1        time.day = 1;
+ 188   1        time.month = 1;
+ 189   1        time.year = 2018;
+ 190   1      }
+ 191          
+ 192          void increase_second(){
+ 193   1        time.second += 1;
+ 194   1        
+ 195   1        if(time.second == 60){
+ 196   2          time.minute += 1;
+ 197   2          time.second = 0;
+ 198   2          if(time.minute == 60){
+ 199   3            time.hour += 1;
+ 200   3            time.minute = 0;
+ 201   3            if(time.hour == 24){
+ 202   4              time.weekday += 1;
+ 203   4              time.day += 1;
+ 204   4              time.hour = 0;
+ 205   4              if(time.weekday == 7){
+ 206   5                time.weekday = 0;
+ 207   5              }
+ 208   4              if(time.month == 2){
+ 209   5                if ((time.year % 4) == 0){ 
+ 210   6                  if (time.day == 30){
+ 211   7                    time.day = 1;
+ 212   7                    time.month += 1;
+ 213   7                  }
+ 214   6                }
+ 215   5                else{
+ 216   6                  if (time.day == 29){
+ 217   7                    time.day = 1;
+ 218   7                    time.month += 1;
+ 219   7                  }       
+ 220   6                }
+ 221   5              }
+ 222   4              else if(time.month == 12){
+ 223   5                if(time.day == 32){
+ 224   6                  time.day = 1;
+ 225   6                  time.month = 1;
+ 226   6                  time.year += 1;
+ 227   6                }
+ 228   5              }
+ 229   4              else if(time.month == 1 || time.month == 3 || time.month == 5 || time.month == 7 || time.month == 8 ||
+             - time.month == 10){
+ 230   5                if(time.day == 32){
+ 231   6                  time.day = 1;
+ 232   6                  time.month += 1;
+ 233   6                }
+ 234   5              }
+ 235   4              else{
+ 236   5                if(time.day == 31){
+ 237   6                  time.day = 1;
+ 238   6                  time.month += 1;
+ 239   6                }
+C51 COMPILER V9.52.0.0   MAIN                                                              04/18/2018 01:44:31 PAGE 5   
+
+ 240   5              }
+ 241   4              Solar2Lunar(time.day,time.month,time.year,&time.lunarday, &time.lunarmonth, &time.lunaryear);
+*** WARNING C182 IN LINE 241 OF main.c: pointer to different objects
+ 242   4            }
+ 243   3          }
+ 244   2        }
+ 245   1      }
+ 246          
+ 247          char day_of_week(char day,char month,int year){
+ 248   1        unsigned int total_day = day - 1;
+ 249   1        char i;
+ 250   1        char res;
+ 251   1        
+ 252   1        for(i=1; i<month; i++){
+ 253   2          if(i==1 || i==3 || i==5 || i==7|| i==8|| i==10 || i==12)
+ 254   2            total_day+=31;
+ 255   2          else{
+ 256   3            if(i==2){
+ 257   4              if(year%4==0)
+ 258   4                total_day+=29;
+ 259   4              else if(year%4!=0)
+ 260   4                total_day+=28;
+ 261   4            }
+ 262   3            else
+ 263   3              total_day+=30;
+ 264   3          }
+ 265   2        }
+ 266   1        total_day += (year-2000)*365 + (year-2001)/4 + 1;
+ 267   1        res = (char)((total_day+5)%7);
+ 268   1        return res;
+ 269   1      }
+ 270          
+ 271          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1533    ----
+   CONSTANT SIZE    =     45    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     15       3
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      6    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  2 WARNING(S),  0 ERROR(S)

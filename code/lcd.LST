@@ -1,0 +1,156 @@
+C51 COMPILER V9.52.0.0   LCD                                                               04/18/2018 01:44:31 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE LCD
+OBJECT MODULE PLACED IN lcd.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE lcd.c BROWSE DEBUG OBJECTEXTEND TABS(2)
+
+line level    source
+
+   1          #include "lcd.h"
+   2          
+   3          void delay(unsigned int time){
+   4   1        int i,j;
+   5   1        for (i = 0; i < time; i++){
+   6   2          for(j = 0; j < 123; j++);
+   7   2        }
+   8   1      }
+   9          
+  10          void LCD_cmd(unsigned char cmd){
+  11   1        
+  12   1        LCD_RS = 0;     //command mode
+  13   1        LCD_DATA = cmd; 
+  14   1        LCD_EN = 1;     //generate a pulse to allow LCD get data
+  15   1        LCD_EN = 0;
+  16   1        if(cmd < 0x02)
+  17   1          delay(2);
+  18   1        else
+  19   1          delay(1);
+  20   1      }
+  21          
+  22          void LCD_print_char(char ch){
+  23   1        LCD_RS = 1;     //data mode
+  24   1        LCD_DATA = ch;
+  25   1        LCD_EN = 1;
+  26   1        LCD_EN = 0;
+  27   1        delay(1); 
+  28   1      }
+  29          
+  30          void LCD_print(char *str){
+  31   1        unsigned int index = 0;
+  32   1        
+  33   1        while(str[index] != 0){
+  34   2          LCD_print_char(str[index]);
+  35   2          index++;
+  36   2        }
+  37   1      }
+  38          
+  39          void LCD_init(){
+  40   1        LCD_cmd(0x30);  
+  41   1        delay(5);
+  42   1        LCD_cmd(0x30);
+  43   1        delay(1);
+  44   1        LCD_cmd(0x30);  //according to manufacturer's instructions
+  45   1        LCD_cmd(0x38);  //2 line, font 5x8
+  46   1        LCD_cmd(0x01);  //delete content
+  47   1        LCD_cmd(0x0c);  //turn on display, no pointer
+  48   1      }
+  49          
+  50          void LCD_goto(char row, char col){
+  51   1        char pos = 0x80;
+  52   1        if (row & 1)
+  53   1          pos = pos | ((col & 0x0f) | 0x40);
+  54   1        else
+  55   1          pos = pos | (col & 0x0f);
+C51 COMPILER V9.52.0.0   LCD                                                               04/18/2018 01:44:31 PAGE 2   
+
+  56   1        LCD_cmd(pos);
+  57   1      }
+  58          
+  59          void LCD_print_number(int numb){
+  60   1        char str[4];
+  61   1        if(numb < 100){
+  62   2          str[0] = digit[numb / 10];
+  63   2          str[1] = digit[numb % 10];
+  64   2          LCD_print(str);
+  65   2        }
+  66   1        else{
+  67   2          str[0] = digit[numb / 1000];
+  68   2          str[1] = digit[numb % 1000 / 100];
+  69   2          str[2] = digit[numb % 100 / 10];
+  70   2          str[3] = digit[numb % 1000];
+  71   2          LCD_print(str);
+  72   2        }
+  73   1      }
+  74          void LCD_print_time(char hour, char minute, char second, bit _24h_mode_){
+  75   1        char str[10];
+  76   1        LCD_cmd(0x84);
+  77   1        if(~_24h_mode_){
+  78   2          if(hour < 12) {
+  79   3            str[8] = 'a';
+  80   3            str[9] = 'm';
+  81   3          }
+  82   2          else{
+  83   3            str[8] = 'p';
+  84   3            str[9] = 'm';
+  85   3          }
+  86   2          
+  87   2          if(hour>=13 && hour<=23){
+  88   3            hour -= 12;
+  89   3          }
+  90   2          else if(hour == 0)
+  91   2            hour = 12;
+  92   2        }
+  93   1        else{
+  94   2          str[8] = ' ';
+  95   2          str[9] = ' ';
+  96   2        }
+  97   1        str[0] = digit[hour / 10];
+  98   1        str[1] = digit[hour % 10];
+  99   1        str[2] = ':';
+ 100   1        str[3] = digit[minute / 10];
+ 101   1        str[4] = digit[minute % 10];
+ 102   1        str[5] = ':';
+ 103   1        str[6] = digit[second / 10];
+ 104   1        str[7] = digit[second % 10];
+ 105   1        str[10] = 0;
+ 106   1        LCD_print(str);
+ 107   1      }
+ 108          
+ 109          void LCD_print_date(char week_day, char day, char month, int year){
+ 110   1        char str[14];
+ 111   1        str[14] = 0;
+ 112   1        LCD_cmd(0xc1);
+ 113   1        str[0] = weekday[week_day][0];
+ 114   1        str[1] = weekday[week_day][1];
+ 115   1        str[2] = weekday[week_day][2];
+ 116   1        str[3] = ' ';
+ 117   1        str[4] = digit[day / 10];
+C51 COMPILER V9.52.0.0   LCD                                                               04/18/2018 01:44:31 PAGE 3   
+
+ 118   1        str[5] = digit[day % 10];
+ 119   1        str[6] = '/';
+ 120   1        str[7] = digit[month / 10];
+ 121   1        str[8] = digit[month % 10];
+ 122   1        str[9] = '/';
+ 123   1        str[10] = digit[year / 1000];
+ 124   1        str[11] = digit[year % 1000 / 100];
+ 125   1        str[12] = digit[year % 100 / 10];
+ 126   1        str[13] = digit[year % 10];
+ 127   1        
+ 128   1        LCD_print(str);
+ 129   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    973    ----
+   CONSTANT SIZE    =     37    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----      42
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
